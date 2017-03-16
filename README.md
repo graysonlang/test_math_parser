@@ -1,7 +1,7 @@
-# test_math_parser
+# test_math_parser #
 Shunting-yard math parser test.
 
-##License
+## License ##
 
 This is free and unencumbered software released into the public domain.
 
