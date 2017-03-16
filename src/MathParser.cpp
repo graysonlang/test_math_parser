@@ -3,6 +3,7 @@
 #include "common/utils.h" // IMPLEMENT_STD_HASH_FOR_ENUM_CLASS
 
 #include <cassert>
+#include <cmath> // std::isnan
 #include <cstdio>
 #include <locale>
 #include <regex>
@@ -26,13 +27,14 @@ namespace MathParser {
       MULTIPLY,
       PAREN_L,
       PAREN_R,
+      PERCENTAGE,
       SUBTRACT,
       UNARY_MINUS,
       UNARY_PLUS,
     };
 
     static const Operator &from_type(Operator::Type type);
-    EvaluationErrorType eval(std::stack<double> &values) const;
+    EvaluationErrorType eval(std::stack<double> &values, double current_value = std::numeric_limits<double>::quiet_NaN()) const;
     static const Operator &null_operator();
 
     Type type;
@@ -59,6 +61,7 @@ namespace MathParser {
       MINUS,
       PAREN_L,
       PAREN_R,
+      PERCENT,
       PLUS,
       SLASH,
     };
@@ -111,6 +114,8 @@ namespace MathParser {
 
         { Operator::Type::EXPONENT,    Operator::Associativity::RIGHT, 30, 2, "exp" },
 
+        { Operator::Type::PERCENTAGE,  Operator::Associativity::LEFT,  40, 1, "%" },
+
         { Operator::Type::UNARY_MINUS, Operator::Associativity::RIGHT, 50, 1, "neg" },
         { Operator::Type::UNARY_PLUS,  Operator::Associativity::RIGHT, 50, 1, "pos" },
       };
@@ -127,7 +132,7 @@ namespace MathParser {
     return it == _operator_map.end() ? null_operator() : it->second;
   }
 
-  EvaluationErrorType Operator::eval(std::stack<double> &values) const {
+  EvaluationErrorType Operator::eval(std::stack<double> &values, double current_value) const {
     // Check if we have enough arguments for the operator type.
     if (values.size() < degree) {
       return EvaluationErrorType::EXPECTED_MORE_ARGUMENTS;
@@ -139,14 +144,23 @@ namespace MathParser {
       case Type::PAREN_R:
         return EvaluationErrorType::UNEXPECTED_TOKEN;
 
-      case Type::UNARY_MINUS: {
-      case Type::UNARY_PLUS:
+      case Type::PERCENTAGE:
+      case Type::UNARY_MINUS:
+      case Type::UNARY_PLUS: {
         // Handle unary operators.
         double value = values.top();
         values.pop();
         switch(type) {
           default:
             return EvaluationErrorType::UNEXPECTED_TOKEN;
+
+          case Type::PERCENTAGE:
+            if (std::isnan(current_value)) {
+              return EvaluationErrorType::EXPECTED_CURRENT_VALUE;
+            }
+            value = value * current_value / 100.0;
+            break;
+
           case Type::UNARY_MINUS: value *= -1.0; break;
           case Type::UNARY_PLUS:  /* no-op */    break;
         }
@@ -157,8 +171,7 @@ namespace MathParser {
       case Type::ADD:
       case Type::DIVIDE:
       case Type::EXPONENT:
-      case Type::MULTIPLY:
-      case Type::SUBTRACT: {
+      case Type::MULTIPLY:       case Type::SUBTRACT: {
         // Handle binary operators.
         double b = std::move(values.top());
         values.pop();
@@ -169,7 +182,12 @@ namespace MathParser {
             return EvaluationErrorType::UNEXPECTED_TOKEN;
           case Type::ADD:      values.push(a + b); break;
           case Type::SUBTRACT: values.push(a - b); break;
-          case Type::DIVIDE:   values.push(a / b); break;
+          case Type::DIVIDE:
+            if (b == 0.0) {
+              return EvaluationErrorType::DIVIDE_BY_ZERO;
+            }
+            values.push(a / b);
+            break;
           case Type::MULTIPLY: values.push(a * b); break;
           case Type::EXPONENT: {
             double d;
@@ -209,6 +227,7 @@ namespace MathParser {
       { "-", Token::Id::MINUS },
       { "(", Token::Id::PAREN_L },
       { ")", Token::Id::PAREN_R },
+      { "%", Token::Id::PERCENT },
       { "+", Token::Id::PLUS },
       { "/", Token::Id::SLASH },
     };
@@ -219,12 +238,13 @@ namespace MathParser {
   const Operator &Token::id_to_operator(Id id, bool left_is_edge) {
     Operator::Type type;
     switch(id) {
-      case Id::ASTERISK: type = Operator::Type::MULTIPLY; break;
-      case Id::CARET:    type = Operator::Type::EXPONENT; break;
-      case Id::NONE:     type = Operator::Type::NONE;     break;
-      case Id::PAREN_L:  type = Operator::Type::PAREN_L;  break;
-      case Id::PAREN_R:  type = Operator::Type::PAREN_R;  break;
-      case Id::SLASH:    type = Operator::Type::DIVIDE;   break;
+      case Id::ASTERISK: type = Operator::Type::MULTIPLY;   break;
+      case Id::CARET:    type = Operator::Type::EXPONENT;   break;
+      case Id::NONE:     type = Operator::Type::NONE;       break;
+      case Id::PAREN_L:  type = Operator::Type::PAREN_L;    break;
+      case Id::PAREN_R:  type = Operator::Type::PAREN_R;    break;
+      case Id::PERCENT:  type = Operator::Type::PERCENTAGE; break;
+      case Id::SLASH:    type = Operator::Type::DIVIDE;     break;
 
         // Differentiate between unary and binary operators.
       case Id::MINUS:    type = left_is_edge ? Operator::Type::UNARY_MINUS : Operator::Type::SUBTRACT; break;
@@ -268,9 +288,9 @@ namespace MathParser {
   // https://en.wikipedia.org/wiki/Shunting-yard_algorithm
   // Expects expression to be formatted with infix notation.
   // Converts into postfix notation and evaluates in place.
-  Result evaluate_expression(const std::string &expression) {
-    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^]|(?:\s+))");
-    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^])");
+  Result evaluate_expression(const std::string &expression, double current_value) {
+    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%]|(?:\s+))");
+    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%])");
     static const std::regex spaces(R"(\s+)");
 
     // Compress whitespace.
@@ -324,7 +344,7 @@ namespace MathParser {
                 assert(token.op.associativity != Operator::Associativity::NONE);
                 if ((token.op.associativity == Operator::Associativity::LEFT && token.op.precedence <= t.op.precedence) ||
                     (token.op.associativity == Operator::Associativity::RIGHT && token.op.precedence < t.op.precedence)) {
-                  EvaluationErrorType eval_error = stack.top().op.eval(output);
+                  EvaluationErrorType eval_error = stack.top().op.eval(output, current_value);
                   if (eval_error != EvaluationErrorType::NONE) {
                     return { eval_error, std::move(input), (int)token.position, (int) token.string.length() };
                   }
@@ -349,7 +369,7 @@ namespace MathParser {
                   stack.pop();
                   break;
                 } else {
-                  EvaluationErrorType eval_error = stack.top().op.eval(output);
+                  EvaluationErrorType eval_error = stack.top().op.eval(output, current_value);
                   if (eval_error != EvaluationErrorType::NONE) {
                     return { eval_error, std::move(input), (int)token.position, (int) token.string.length() };
                   }
@@ -376,7 +396,7 @@ namespace MathParser {
       if (token.op.type == Operator::Type::PAREN_L || token.op.type == Operator::Type::PAREN_L) {
         return { ParsingErrorType::MISMATCHED_PARENS, std::move(input), 0 };
       }
-      EvaluationErrorType eval_error = token.op.eval(output);
+      EvaluationErrorType eval_error = token.op.eval(output, current_value);
       if (eval_error != EvaluationErrorType::NONE) {
         return { eval_error, std::move(input), (int)token.position, (int) token.string.length() };
       }

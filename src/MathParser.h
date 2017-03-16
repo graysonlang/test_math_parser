@@ -2,6 +2,7 @@
 #ifndef MATH_PARSER_H_
 #define MATH_PARSER_H_
 
+#include <climits> // std::numerical_limis::quiet_NaN()
 #include <string>
 
 namespace MathParser {
@@ -22,6 +23,7 @@ namespace MathParser {
   enum class EvaluationErrorType {
     NONE = 0,
     DIVIDE_BY_ZERO,
+    EXPECTED_CURRENT_VALUE,
     EXPECTED_MORE_ARGUMENTS,
     IMAGINARY_NUMBER,
     UNEXPECTED_TOKEN,
@@ -41,7 +43,7 @@ namespace MathParser {
     Result(EvaluationErrorType, std::string && = "", int = -1, int = 0);
   };
 
-  Result evaluate_expression(const std::string &expression);
+  Result evaluate_expression(const std::string &expression, double current_value = std::numeric_limits<double>::quiet_NaN());
 
 } // namespace MathParser
 

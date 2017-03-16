@@ -17,14 +17,17 @@ TEST_CASE("MathParser", "evaluate_expression") {
   struct MathTestCase {
     std::string expression;
     MathParser::Status status = { };
+    double current = std::numeric_limits<double>::quiet_NaN();;
     double result = std::numeric_limits<double>::quiet_NaN();
     MathParser::ParsingErrorType parsing_error = { };
     MathParser::EvaluationErrorType evaluation_error = { };
 
-    MathTestCase(const std::string &expression_, double result_)
+
+    MathTestCase(const std::string &expression_, double result_, double current_ = std::numeric_limits<double>::quiet_NaN())
     : expression(expression_)
     , status(MathParser::Status::SUCCESS)
     , result(result_)
+    , current(current_)
     { }
 
     MathTestCase(const std::string &expression_, MathParser::ParsingErrorType parsing_error_)
@@ -33,10 +36,11 @@ TEST_CASE("MathParser", "evaluate_expression") {
     , parsing_error(parsing_error_)
     { }
 
-    MathTestCase(const std::string &expression_, MathParser::EvaluationErrorType evaluation_error_)
+    MathTestCase(const std::string &expression_, MathParser::EvaluationErrorType evaluation_error_, double current_ = std::numeric_limits<double>::quiet_NaN())
     : expression(expression_)
     , status(MathParser::Status::EVALUATION_ERROR)
     , evaluation_error(evaluation_error_)
+    , current(current_)
     { }
   };
 
@@ -56,6 +60,8 @@ TEST_CASE("MathParser", "evaluate_expression") {
     { "12.",                         ParsingErrorType::SYNTAX_ERROR },
     { "1 + 2 # 3",                   ParsingErrorType::SYNTAX_ERROR },
 
+    { "1 / (1 - 1)",                 EvaluationErrorType::DIVIDE_BY_ZERO },
+    { "50%",                         EvaluationErrorType::EXPECTED_CURRENT_VALUE },
     { "+",                           EvaluationErrorType::EXPECTED_MORE_ARGUMENTS },
     { "1 *",                         EvaluationErrorType::EXPECTED_MORE_ARGUMENTS },
     { "(1 + ) + 1",                  EvaluationErrorType::EXPECTED_MORE_ARGUMENTS },
@@ -98,13 +104,14 @@ TEST_CASE("MathParser", "evaluate_expression") {
     { "(2 ^ 2) ^ 3",                 std::pow(std::pow(2, 2), 3) },
     { "1 + .2 * -3 / +4 ^ 5",        1 + .2 * -3 / std::pow(+4, 5) },
     { "+-+-1++--++--++--+2-3+4",     1+2-3+4 },
+    { "50%",                         0.5 * 1.0, 1.0 },
   };
 
   for (const MathTestCase &test_case : test_cases) {
     const std::string &expression = test_case.expression;
     std::printf("\"%s\"\n", expression.c_str());
 
-    MathParser::Result result = MathParser::evaluate_expression(expression);
+    MathParser::Result result = MathParser::evaluate_expression(expression, test_case.current);
 
     switch(result.status) {
       case MathParser::Status::SUCCESS: {
@@ -150,6 +157,7 @@ TEST_CASE("MathParser", "evaluate_expression") {
           }
 
           case MathParser::EvaluationErrorType::DIVIDE_BY_ZERO:          error_string = ": divide by zero";          break;
+          case MathParser::EvaluationErrorType::EXPECTED_CURRENT_VALUE:  error_string = ": expected current value";  break;
           case MathParser::EvaluationErrorType::EXPECTED_MORE_ARGUMENTS: error_string = ": expected more arguments"; break;
           case MathParser::EvaluationErrorType::IMAGINARY_NUMBER:        error_string = ": imaginary number";        break;
           case MathParser::EvaluationErrorType::UNEXPECTED_TOKEN:        error_string = ": unexpected token";        break;
