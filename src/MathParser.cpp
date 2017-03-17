@@ -25,6 +25,8 @@ namespace MathParser {
       NONE = 0,
       ADD,
       COSINE,
+      COSECANT,
+      COTANGENT,
       DIVIDE,
       E,
       EXPONENT,
@@ -33,6 +35,7 @@ namespace MathParser {
       PAREN_R,
       PERCENTAGE,
       PI,
+      SECANT,
       SINE,
       SUBTRACT,
       TANGENT,
@@ -68,6 +71,8 @@ namespace MathParser {
       ASTERISK,
       CARET,
       COS,
+      COT,
+      CSC,
       E,
       MINUS,
       PAREN_L,
@@ -75,6 +80,7 @@ namespace MathParser {
       PERCENT,
       PI,
       PLUS,
+      SEC,
       SIN,
       SLASH,
       TAN,
@@ -109,9 +115,16 @@ namespace MathParser {
 
   typedef double (*unary_function_pointer)(double);
 
+  double cot(double d) { return 1.0 / tan(d); }
+  double csc(double d) { return 1.0 / sin(d); }
+  double sec(double d) { return 1.0 / cos(d); }
+
   static unary_function_pointer unary_operator_function(Operator::Type type) {
     static std::unordered_map<Operator::Type, unary_function_pointer> unary_functions = {
+      { Operator::Type::COSECANT, &csc },
       { Operator::Type::COSINE, &cos },
+      { Operator::Type::COTANGENT, &cot },
+      { Operator::Type::SECANT, &sec },
       { Operator::Type::SINE, &sin },
       { Operator::Type::TANGENT, &tan },
     };
@@ -141,7 +154,10 @@ namespace MathParser {
         { Operator::Type::PERCENTAGE,  Operator::Associativity::LEFT,   30, 1, "%" },
         { Operator::Type::TIMES,       Operator::Associativity::LEFT,   30, 1, "x" },
 
+        { Operator::Type::COSECANT,    Operator::Associativity::RIGHT,  40, 1, "csc" },
         { Operator::Type::COSINE,      Operator::Associativity::RIGHT,  40, 1, "cos" },
+        { Operator::Type::COTANGENT,   Operator::Associativity::RIGHT,  40, 1, "cot" },
+        { Operator::Type::SECANT,      Operator::Associativity::RIGHT,  40, 1, "sec" },
         { Operator::Type::SINE,        Operator::Associativity::RIGHT,  40, 1, "sin" },
         { Operator::Type::TANGENT,     Operator::Associativity::RIGHT,  40, 1, "tan" },
 
@@ -187,8 +203,12 @@ namespace MathParser {
       case Type::TAU: values.push(common::math::tau<double>()); break;
         break;
 
+
+      case Type::COSECANT:
       case Type::COSINE:
+      case Type::COTANGENT:
       case Type::PERCENTAGE:
+      case Type::SECANT:
       case Type::SINE:
       case Type::TANGENT:
       case Type::TIMES:
@@ -201,7 +221,10 @@ namespace MathParser {
           default:
             return EvaluationErrorType::UNEXPECTED_TOKEN;
 
+          case Type::COSECANT:
           case Type::COSINE:
+          case Type::COTANGENT:
+          case Type::SECANT:
           case Type::SINE:
           case Type::TANGENT: {
             unary_function_pointer trig = unary_operator_function(type);
@@ -294,11 +317,14 @@ namespace MathParser {
       { "/",   Token::Id::SLASH },
       { "^",   Token::Id::CARET },
       { "cos", Token::Id::COS },
+      { "cot", Token::Id::COT },
+      { "csc", Token::Id::CSC },
       { "e",   Token::Id::E },
       { "pi",  Token::Id::PI },
+      { "sec", Token::Id::SEC },
       { "sin", Token::Id::SIN },
       { "tan", Token::Id::TAN },
-      { "tau",  Token::Id::TAU },
+      { "tau", Token::Id::TAU },
       { "x",   Token::Id::X },
     };
     auto it = map.find(string);
@@ -310,13 +336,16 @@ namespace MathParser {
     switch(id) {
       case Id::ASTERISK: type = Operator::Type::MULTIPLY;   break;
       case Id::CARET:    type = Operator::Type::EXPONENT;   break;
+      case Id::CSC:      type = Operator::Type::COSECANT;   break;
       case Id::COS:      type = Operator::Type::COSINE;     break;
+      case Id::COT:      type = Operator::Type::COTANGENT;  break;
       case Id::E:        type = Operator::Type::E;          break;
       case Id::NONE:     type = Operator::Type::NONE;       break;
       case Id::PAREN_L:  type = Operator::Type::PAREN_L;    break;
       case Id::PAREN_R:  type = Operator::Type::PAREN_R;    break;
       case Id::PERCENT:  type = Operator::Type::PERCENTAGE; break;
       case Id::PI:       type = Operator::Type::PI;         break;
+      case Id::SEC:      type = Operator::Type::SECANT;     break;
       case Id::SIN:      type = Operator::Type::SINE;       break;
       case Id::SLASH:    type = Operator::Type::DIVIDE;     break;
       case Id::TAN:      type = Operator::Type::TANGENT;    break;
@@ -366,8 +395,8 @@ namespace MathParser {
   // Expects expression to be formatted with infix notation.
   // Converts into postfix notation and evaluates in place.
   Result evaluate_expression(const std::string &expression, double current_value, Config config) {
-    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|(?:[()+\-*\/^%x])|(?:cos)|(?:sin)|(?:tan)|e|(?:pi)|(?:tau)|(?:\s+))");
-    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|(?:[()+\-*\/^%x])|(?:cos)|(?:sin)|(?:tan)|e|(?:pi)|(?:tau))");
+    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|(?:[()+\-*\/^%x])|(?:(?:cos)|(?:sin)|(?:tan))|(?:cot)|(?:csc)|(?:sec)|e|(?:pi)|(?:tau)|(?:\s+))");
+    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|(?:[()+\-*\/^%x])|(?:(?:cos)|(?:sin)|(?:tan))|(?:cot)|(?:csc)|(?:sec)|e|(?:pi)|(?:tau))");
     static const std::regex spaces(R"(\s+)");
 
     // Compress whitespace.
