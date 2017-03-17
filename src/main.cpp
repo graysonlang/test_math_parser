@@ -136,12 +136,12 @@ TEST_CASE("MathParser", "evaluate_expression") {
             break;
 
           case MathParser::ParsingErrorType::SYNTAX_ERROR: {
-            if (result.error_position < 0) {
+            if (result.error_length == 0 || result.filtered_expression.length() == 0) {
               std::printf("<parsing error: syntax error>\n\n");
             } else {
-              std::printf("<parsing error: syntax error> at position %i: \"%s\"\n\n",
+              std::printf("<parsing error: syntax error> at position %zu: \"%s\"\n\n",
                      result.error_position,
-                     expression.substr(std::min((int)expression.length(), result.error_position), result.error_length).c_str());
+                     expression.substr(std::min(expression.length(), result.error_position), result.error_length).c_str());
             }
             break;
           }
@@ -165,13 +165,13 @@ TEST_CASE("MathParser", "evaluate_expression") {
           case MathParser::EvaluationErrorType::UNEXPECTED_TOKEN:        error_string = ": unexpected token";        break;
         }
 
-        if (result.error_position < 0) {
+        if (result.error_length == 0 || result.filtered_expression.length() == 0) {
           std::printf("<evaluation error%s>\n\n", error_string.c_str());
         } else {
-          std::printf("<evaluation error%s> at position %i: \"%s\"\n\n",
+          std::printf("<evaluation error%s> at position %zu: \"%s\"\n\n",
                  error_string.c_str(),
                  result.error_position,
-                 expression.substr(std::min((int)expression.length(), result.error_position), result.error_length).c_str());
+                 expression.substr(std::min(expression.length(), result.error_position), result.error_length).c_str());
         }
         break;
       }

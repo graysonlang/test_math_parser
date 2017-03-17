@@ -35,12 +35,12 @@ namespace MathParser {
     std::string filtered_expression;
     ParsingErrorType parsing_error;
     EvaluationErrorType evaluation_error;
-    int error_position;
+    size_t error_position;
     size_t error_length;
 
     Result(double result);
-    Result(ParsingErrorType, std::string && = "", int = -1, int = 0);
-    Result(EvaluationErrorType, std::string && = "", int = -1, int = 0);
+    Result(ParsingErrorType, std::string && = "", size_t = 0, size_t = 0);
+    Result(EvaluationErrorType, std::string && = "", size_t = 0, size_t = 0);
   };
 
   Result evaluate_expression(const std::string &expression, double current_value = std::numeric_limits<double>::quiet_NaN());

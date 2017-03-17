@@ -268,7 +268,7 @@ namespace MathParser {
     return Operator::from_type(type);
   }
 
-  Result::Result(ParsingErrorType parsing_error_, std::string &&filtered_expression_, int error_position_, int error_length_)
+  Result::Result(ParsingErrorType parsing_error_, std::string &&filtered_expression_, size_t error_position_, size_t error_length_)
   : status(Status::PARSING_ERROR)
   , parsing_error(parsing_error_)
   , evaluation_error(EvaluationErrorType::NONE)
@@ -278,7 +278,7 @@ namespace MathParser {
   {
   }
 
-  Result::Result(EvaluationErrorType evaluation_error_, std::string &&filtered_expression_, int error_position_, int error_length_)
+  Result::Result(EvaluationErrorType evaluation_error_, std::string &&filtered_expression_, size_t error_position_, size_t error_length_)
   : status(Status::EVALUATION_ERROR)
   , parsing_error(ParsingErrorType::NONE)
   , evaluation_error(evaluation_error_)
@@ -314,10 +314,10 @@ namespace MathParser {
     // Verify input by matching against valid operators, numbers, or spaces.
     std::sregex_token_iterator it(input.begin(), input.end(), pattern_number_or_operator_or_spaces, -1), end;
     while (it != end) {
-      unsigned long length = it->length();
+      size_t length = it->length();
       if (length > 0) {
         size_t position = &(*it->first) - input.c_str();
-        return { ParsingErrorType::SYNTAX_ERROR, std::move(input), (int)position, (int)length };
+        return { ParsingErrorType::SYNTAX_ERROR, std::move(input), position, length };
       }
       ++it;
     }
@@ -361,7 +361,7 @@ namespace MathParser {
                     (token.op.associativity == Operator::Associativity::RIGHT && token.op.precedence < t.op.precedence)) {
                   EvaluationErrorType eval_error = stack.top().op.eval(output, current_value);
                   if (eval_error != EvaluationErrorType::NONE) {
-                    return { eval_error, std::move(input), (int)token.position, (int) token.string.length() };
+                    return { eval_error, std::move(input), token.position, token.string.length() };
                   }
                   stack.pop();
                 }
@@ -377,7 +377,7 @@ namespace MathParser {
 
             case Operator::Type::PAREN_R:
               if (stack.empty()) {
-                return { ParsingErrorType::MISMATCHED_PARENS, std::move(input), (int)position };
+                return { ParsingErrorType::MISMATCHED_PARENS, std::move(input), position };
               }
               while(!stack.empty()) {
                 if (stack.top().op.type == Operator::Type::PAREN_L) {
@@ -386,13 +386,13 @@ namespace MathParser {
                 } else {
                   EvaluationErrorType eval_error = stack.top().op.eval(output, current_value);
                   if (eval_error != EvaluationErrorType::NONE) {
-                    return { eval_error, std::move(input), (int)token.position, (int) token.string.length() };
+                    return { eval_error, std::move(input), token.position, token.string.length() };
                   }
                   stack.pop();
                 }
 
                 if (stack.empty()) {
-                  return { ParsingErrorType::MISMATCHED_PARENS, std::move(input), (int)position };
+                  return { ParsingErrorType::MISMATCHED_PARENS, std::move(input), position };
                 }
               }
               break;
@@ -402,7 +402,7 @@ namespace MathParser {
 
         case Token::Type::NONE:
           // Should not get here since tokens have already been verified via regular expression.
-          return { EvaluationErrorType::UNEXPECTED_TOKEN, std::move(input), (int)position };
+          return { EvaluationErrorType::UNEXPECTED_TOKEN, std::move(input), position };
       }
     }
 
@@ -413,7 +413,7 @@ namespace MathParser {
       }
       EvaluationErrorType eval_error = token.op.eval(output, current_value);
       if (eval_error != EvaluationErrorType::NONE) {
-        return { eval_error, std::move(input), (int)token.position, (int) token.string.length() };
+        return { eval_error, std::move(input), token.position, token.string.length() };
       }
       stack.pop();
     }
