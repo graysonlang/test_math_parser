@@ -1,9 +1,11 @@
 #include "MathParser.h"
 
+#include "common/math.h" // d2r
 #include "common/utils.h" // IMPLEMENT_STD_HASH_FOR_ENUM_CLASS
 
+#include <algorithm> // transform
 #include <cassert>
-#include <cmath> // std::isnan
+#include <cmath> // std::isnan, std::
 #include <cstdio>
 #include <locale>
 #include <regex>
@@ -22,20 +24,26 @@ namespace MathParser {
     enum class Type {
       NONE = 0,
       ADD,
+      COSINE,
       DIVIDE,
+      E,
       EXPONENT,
       MULTIPLY,
       PAREN_L,
       PAREN_R,
       PERCENTAGE,
+      PI,
+      SINE,
       SUBTRACT,
+      TANGENT,
+      TAU,
       TIMES,
       UNARY_MINUS,
       UNARY_PLUS,
     };
 
     static const Operator &from_type(Operator::Type type);
-    EvaluationErrorType eval(std::stack<double> &values, double current_value = std::numeric_limits<double>::quiet_NaN()) const;
+    EvaluationErrorType eval(std::stack<double> &values, Config config, double current_value = std::numeric_limits<double>::quiet_NaN()) const;
     static const Operator &null_operator();
 
     Type type;
@@ -59,12 +67,18 @@ namespace MathParser {
       NONE = 0,
       ASTERISK,
       CARET,
+      COS,
+      E,
       MINUS,
       PAREN_L,
       PAREN_R,
       PERCENT,
+      PI,
       PLUS,
+      SIN,
       SLASH,
+      TAN,
+      TAU,
       X,
     };
 
@@ -81,6 +95,7 @@ namespace MathParser {
   private:
     static const Id string_to_id(const std::string &string);
     static const Operator &id_to_operator(Id id, bool left_is_edge = false);
+    static const Type id_to_type(Id);
     Token();
   };
 
@@ -90,14 +105,23 @@ namespace MathParser {
 IMPLEMENT_STD_HASH_FOR_ENUM_CLASS(MathParser::Operator::Type);
 IMPLEMENT_STD_HASH_FOR_ENUM_CLASS(MathParser::Token::Id);
 
-
 namespace MathParser {
+
+  typedef double (*unary_function_pointer)(double);
+
+  static unary_function_pointer unary_operator_function(Operator::Type type) {
+    static std::unordered_map<Operator::Type, unary_function_pointer> unary_functions = {
+      { Operator::Type::COSINE, &cos },
+      { Operator::Type::SINE, &sin },
+      { Operator::Type::TANGENT, &tan },
+    };
+    return unary_functions[type];
+  }
 
   const Operator &Operator::null_operator() {
     static Operator NULL_OPERATOR = { Operator::Type::NONE, Operator::Associativity::NONE, -1 };
     return NULL_OPERATOR;
   }
-
 
   static std::unordered_map<Operator::Type, const Operator> &init_operator_map() {
     static std::unordered_map<Operator::Type, const Operator> map;
@@ -105,22 +129,30 @@ namespace MathParser {
     if (!initialized) {
       initialized = true;
       static std::vector<Operator> operators = {
-        { Operator::Type::PAREN_L,     Operator::Associativity::NONE,   0, 0, "("   },
-        { Operator::Type::PAREN_R,     Operator::Associativity::NONE,   0, 0, ")"   },
+        { Operator::Type::PAREN_L,     Operator::Associativity::NONE,    0, 0, "("   },
+        { Operator::Type::PAREN_R,     Operator::Associativity::NONE,    0, 0, ")"   },
 
-        { Operator::Type::ADD,         Operator::Associativity::LEFT,  10, 2, "add" },
-        { Operator::Type::SUBTRACT,    Operator::Associativity::LEFT,  10, 2, "sub" },
+        { Operator::Type::ADD,         Operator::Associativity::LEFT,   10, 2, "add" },
+        { Operator::Type::SUBTRACT,    Operator::Associativity::LEFT,   10, 2, "sub" },
 
-        { Operator::Type::DIVIDE,      Operator::Associativity::LEFT,  20, 2, "div" },
-        { Operator::Type::MULTIPLY,    Operator::Associativity::LEFT,  20, 2, "mul" },
+        { Operator::Type::DIVIDE,      Operator::Associativity::LEFT,   20, 2, "div" },
+        { Operator::Type::MULTIPLY,    Operator::Associativity::LEFT,   20, 2, "mul" },
 
-        { Operator::Type::EXPONENT,    Operator::Associativity::RIGHT, 30, 2, "exp" },
+        { Operator::Type::PERCENTAGE,  Operator::Associativity::LEFT,   30, 1, "%" },
+        { Operator::Type::TIMES,       Operator::Associativity::LEFT,   30, 1, "x" },
 
-        { Operator::Type::PERCENTAGE,  Operator::Associativity::LEFT,  40, 1, "%" },
-        { Operator::Type::TIMES,       Operator::Associativity::LEFT,  40, 1, "x" },
+        { Operator::Type::COSINE,      Operator::Associativity::RIGHT,  40, 1, "cos" },
+        { Operator::Type::SINE,        Operator::Associativity::RIGHT,  40, 1, "sin" },
+        { Operator::Type::TANGENT,     Operator::Associativity::RIGHT,  40, 1, "tan" },
 
-        { Operator::Type::UNARY_MINUS, Operator::Associativity::RIGHT, 50, 1, "neg" },
-        { Operator::Type::UNARY_PLUS,  Operator::Associativity::RIGHT, 50, 1, "pos" },
+        { Operator::Type::EXPONENT,    Operator::Associativity::RIGHT,  90, 2, "exp" },
+
+        { Operator::Type::UNARY_MINUS, Operator::Associativity::RIGHT, 100, 1, "neg" },
+        { Operator::Type::UNARY_PLUS,  Operator::Associativity::RIGHT, 100, 1, "pos" },
+
+        { Operator::Type::E,           Operator::Associativity::LEFT,  200, 0, "e"   },
+        { Operator::Type::PI,          Operator::Associativity::LEFT,  200, 0, "pi"  },
+        { Operator::Type::TAU,         Operator::Associativity::LEFT,  200, 0, "tau"  },
       };
       for (const Operator &op : operators) {
         map.insert(std::make_pair(op.type, op));
@@ -135,11 +167,13 @@ namespace MathParser {
     return it == _operator_map.end() ? null_operator() : it->second;
   }
 
-  EvaluationErrorType Operator::eval(std::stack<double> &values, double current_value) const {
+  EvaluationErrorType Operator::eval(std::stack<double> &values, Config config, double current_value) const {
     // Check if we have enough arguments for the operator type.
     if (values.size() < degree) {
       return EvaluationErrorType::EXPECTED_MORE_ARGUMENTS;
     }
+
+    static const double DEG_TO_RAD = common::math::degrees_to_radians<double>();
 
     switch (type) {
       case Type::NONE:
@@ -147,7 +181,16 @@ namespace MathParser {
       case Type::PAREN_R:
         return EvaluationErrorType::UNEXPECTED_TOKEN;
 
+        // Handle constants.
+      case Type::E: values.push(common::math::e<double>()); break;
+      case Type::PI: values.push(common::math::pi<double>()); break;
+      case Type::TAU: values.push(common::math::tau<double>()); break;
+        break;
+
+      case Type::COSINE:
       case Type::PERCENTAGE:
+      case Type::SINE:
+      case Type::TANGENT:
       case Type::TIMES:
       case Type::UNARY_MINUS:
       case Type::UNARY_PLUS: {
@@ -157,6 +200,14 @@ namespace MathParser {
         switch(type) {
           default:
             return EvaluationErrorType::UNEXPECTED_TOKEN;
+
+          case Type::COSINE:
+          case Type::SINE:
+          case Type::TANGENT: {
+            unary_function_pointer trig = unary_operator_function(type);
+            value = config.use_degrees ? trig(value * DEG_TO_RAD) : trig(value);
+            break;
+          }
 
           case Type::PERCENTAGE:
             if (std::isnan(current_value)) {
@@ -234,16 +285,21 @@ namespace MathParser {
 
   const Token::Id Token::string_to_id(const std::string &string) {
     static const std::unordered_map<std::string, Token::Id> map = {
-      { "*", Token::Id::ASTERISK },
-      { "^", Token::Id::CARET },
-      { "-", Token::Id::MINUS },
-      { "(", Token::Id::PAREN_L },
-      { ")", Token::Id::PAREN_R },
-      { "%", Token::Id::PERCENT },
-      { "+", Token::Id::PLUS },
-      { "/", Token::Id::SLASH },
-      { "x", Token::Id::X },
-      { "X", Token::Id::X },
+      { "%",   Token::Id::PERCENT },
+      { "(",   Token::Id::PAREN_L },
+      { ")",   Token::Id::PAREN_R },
+      { "*",   Token::Id::ASTERISK },
+      { "+",   Token::Id::PLUS },
+      { "-",   Token::Id::MINUS },
+      { "/",   Token::Id::SLASH },
+      { "^",   Token::Id::CARET },
+      { "cos", Token::Id::COS },
+      { "e",   Token::Id::E },
+      { "pi",  Token::Id::PI },
+      { "sin", Token::Id::SIN },
+      { "tan", Token::Id::TAN },
+      { "tau",  Token::Id::TAU },
+      { "x",   Token::Id::X },
     };
     auto it = map.find(string);
     return (it == map.end()) ? Token::Id::NONE : it->second;
@@ -254,11 +310,17 @@ namespace MathParser {
     switch(id) {
       case Id::ASTERISK: type = Operator::Type::MULTIPLY;   break;
       case Id::CARET:    type = Operator::Type::EXPONENT;   break;
+      case Id::COS:      type = Operator::Type::COSINE;     break;
+      case Id::E:        type = Operator::Type::E;          break;
       case Id::NONE:     type = Operator::Type::NONE;       break;
       case Id::PAREN_L:  type = Operator::Type::PAREN_L;    break;
       case Id::PAREN_R:  type = Operator::Type::PAREN_R;    break;
       case Id::PERCENT:  type = Operator::Type::PERCENTAGE; break;
+      case Id::PI:       type = Operator::Type::PI;         break;
+      case Id::SIN:      type = Operator::Type::SINE;       break;
       case Id::SLASH:    type = Operator::Type::DIVIDE;     break;
+      case Id::TAN:      type = Operator::Type::TANGENT;    break;
+      case Id::TAU:      type = Operator::Type::TAU;        break;
       case Id::X:        type = Operator::Type::TIMES;      break;
 
         // Differentiate between unary and binary operators.
@@ -303,13 +365,18 @@ namespace MathParser {
   // https://en.wikipedia.org/wiki/Shunting-yard_algorithm
   // Expects expression to be formatted with infix notation.
   // Converts into postfix notation and evaluates in place.
-  Result evaluate_expression(const std::string &expression, double current_value) {
-    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%xX]|(?:\s+))");
-    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%xX])");
+  Result evaluate_expression(const std::string &expression, double current_value, Config config) {
+    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|(?:[()+\-*\/^%x])|(?:cos)|(?:sin)|(?:tan)|e|(?:pi)|(?:tau)|(?:\s+))");
+    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|(?:[()+\-*\/^%x])|(?:cos)|(?:sin)|(?:tan)|e|(?:pi)|(?:tau))");
     static const std::regex spaces(R"(\s+)");
 
     // Compress whitespace.
     std::string input = std::regex_replace(expression, spaces, " ");
+
+    // Convert to lower case.
+    std::string lower_case(input);
+    transform(lower_case.begin(), lower_case.end(), lower_case.begin(), ::tolower);
+    input = std::move(lower_case);
 
     // Verify input by matching against valid operators, numbers, or spaces.
     std::sregex_token_iterator it(input.begin(), input.end(), pattern_number_or_operator_or_spaces, -1), end;
@@ -359,7 +426,7 @@ namespace MathParser {
                 assert(token.op.associativity != Operator::Associativity::NONE);
                 if ((token.op.associativity == Operator::Associativity::LEFT && token.op.precedence <= t.op.precedence) ||
                     (token.op.associativity == Operator::Associativity::RIGHT && token.op.precedence < t.op.precedence)) {
-                  EvaluationErrorType eval_error = stack.top().op.eval(output, current_value);
+                  EvaluationErrorType eval_error = stack.top().op.eval(output, config, current_value);
                   if (eval_error != EvaluationErrorType::NONE) {
                     return { eval_error, std::move(input), token.position, token.string.length() };
                   }
@@ -384,7 +451,7 @@ namespace MathParser {
                   stack.pop();
                   break;
                 } else {
-                  EvaluationErrorType eval_error = stack.top().op.eval(output, current_value);
+                  EvaluationErrorType eval_error = stack.top().op.eval(output, config, current_value);
                   if (eval_error != EvaluationErrorType::NONE) {
                     return { eval_error, std::move(input), token.position, token.string.length() };
                   }
@@ -411,13 +478,13 @@ namespace MathParser {
       if (token.op.type == Operator::Type::PAREN_L || token.op.type == Operator::Type::PAREN_L) {
         return { ParsingErrorType::MISMATCHED_PARENS, std::move(input), 0 };
       }
-      EvaluationErrorType eval_error = token.op.eval(output, current_value);
+      EvaluationErrorType eval_error = token.op.eval(output, config, current_value);
       if (eval_error != EvaluationErrorType::NONE) {
         return { eval_error, std::move(input), token.position, token.string.length() };
       }
       stack.pop();
     }
-    
+
     if (output.size() == 0) {
       return { ParsingErrorType::EMPTY };
     } else if (output.size() == 1) {
@@ -425,6 +492,10 @@ namespace MathParser {
     } else {
       return { ParsingErrorType::SYNTAX_ERROR };
     }
+  }
+  
+  Result evaluate_expression(const std::string &expression, Config config, double current_value) {
+    return evaluate_expression(expression, current_value, config);
   }
   
 } // namespace MathParser

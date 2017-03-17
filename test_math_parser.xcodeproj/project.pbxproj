@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		569934E91E7773A500C05669 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 569934E61E7773A500C05669 /* main.cpp */; };
 		569934EA1E7773A500C05669 /* MathParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 569934E71E7773A500C05669 /* MathParser.cpp */; };
+		569F21131E7C738C008CB846 /* MathParserTestCase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 569F21111E7C738C008CB846 /* MathParserTestCase.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -29,6 +30,8 @@
 		569934E61E7773A500C05669 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = src/main.cpp; sourceTree = "<group>"; };
 		569934E71E7773A500C05669 /* MathParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MathParser.cpp; path = src/MathParser.cpp; sourceTree = "<group>"; };
 		569934E81E7773A500C05669 /* MathParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MathParser.h; path = src/MathParser.h; sourceTree = "<group>"; };
+		569F21111E7C738C008CB846 /* MathParserTestCase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MathParserTestCase.cpp; path = src/MathParserTestCase.cpp; sourceTree = "<group>"; };
+		569F21121E7C738C008CB846 /* MathParserTestCase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MathParserTestCase.h; path = src/MathParserTestCase.h; sourceTree = "<group>"; };
 		56DB0B631E7B1C3B00839335 /* catch.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = catch.hpp; path = external/catch/catch.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -49,6 +52,8 @@
 				56DB0B631E7B1C3B00839335 /* catch.hpp */,
 				569934E51E7773A500C05669 /* common */,
 				569934E61E7773A500C05669 /* main.cpp */,
+				569F21111E7C738C008CB846 /* MathParserTestCase.cpp */,
+				569F21121E7C738C008CB846 /* MathParserTestCase.h */,
 				569934E71E7773A500C05669 /* MathParser.cpp */,
 				569934E81E7773A500C05669 /* MathParser.h */,
 				56556B5F1E737C5F00E8646E /* Products */,
@@ -123,6 +128,7 @@
 			files = (
 				569934EA1E7773A500C05669 /* MathParser.cpp in Sources */,
 				569934E91E7773A500C05669 /* main.cpp in Sources */,
+				569F21131E7C738C008CB846 /* MathParserTestCase.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

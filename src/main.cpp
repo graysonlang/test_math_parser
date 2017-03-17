@@ -2,6 +2,9 @@
 #include "catch.hpp"
 
 #include "MathParser.h"
+#include "MathParserTestCase.h"
+
+#include "common/math.h" // common::math::pi
 
 #include <cassert> // std::assert
 #include <climits> // std::numerical_limis::quiet_NaN()
@@ -10,41 +13,12 @@
 #include <string>
 #include <vector>
 
-using MathParser::EvaluationErrorType;
-using MathParser::ParsingErrorType;
-
 TEST_CASE("MathParser", "evaluate_expression") {
-  struct MathTestCase {
-    std::string expression;
-    MathParser::Status status = { };
-    double current = std::numeric_limits<double>::quiet_NaN();;
-    double result = std::numeric_limits<double>::quiet_NaN();
-    MathParser::ParsingErrorType parsing_error = { };
-    MathParser::EvaluationErrorType evaluation_error = { };
+  static const double E = common::math::e<double>();
+  static const double PI = common::math::pi<double>();
+  static const double TAU = common::math::tau<double>();
 
-
-    MathTestCase(const std::string &expression_, double result_, double current_ = std::numeric_limits<double>::quiet_NaN())
-    : expression(expression_)
-    , status(MathParser::Status::SUCCESS)
-    , result(result_)
-    , current(current_)
-    { }
-
-    MathTestCase(const std::string &expression_, MathParser::ParsingErrorType parsing_error_)
-    : expression(expression_)
-    , status(MathParser::Status::PARSING_ERROR)
-    , parsing_error(parsing_error_)
-    { }
-
-    MathTestCase(const std::string &expression_, MathParser::EvaluationErrorType evaluation_error_, double current_ = std::numeric_limits<double>::quiet_NaN())
-    : expression(expression_)
-    , status(MathParser::Status::EVALUATION_ERROR)
-    , evaluation_error(evaluation_error_)
-    , current(current_)
-    { }
-  };
-
-  static std::vector<MathTestCase> test_cases = {
+  static std::vector<MathParserTestCase> test_cases = {
     { "",                            ParsingErrorType::EMPTY },
     { " \f\n\r\t\v",                 ParsingErrorType::EMPTY },
     { "()",                          ParsingErrorType::EMPTY },
@@ -107,13 +81,27 @@ TEST_CASE("MathParser", "evaluate_expression") {
     { "50%",                         0.5 * 1.0, 1.0 },
     { "2x",                          2.0 * 1.0, 1.0 },
     { "3X",                          3.0 * 1.0, 1.0 },
+    { "E",                           E },
+    { "e",                           E },
+    { "pi",                          PI },
+    { "Pi",                          PI },
+    { "PI",                          PI },
+    { "tau",                         TAU },
+    { "Tau",                         TAU },
+    { "TAU",                         TAU },
+    trig_test_case("cos 180",        TrigFunctionType::COS, 180.0),
+    trig_test_case("cos(TAU)",       TrigFunctionType::COS, TAU, TrigAngleUnits::RADIANS),
+    trig_test_case("sin90.0",        TrigFunctionType::SIN, 90.0),
+    trig_test_case("sin(pi / 2)",    TrigFunctionType::SIN, PI / 2.0, TrigAngleUnits::RADIANS),
+    trig_test_case("tan45",          TrigFunctionType::TAN, 45.0),
+    trig_test_case("tan(e)",         TrigFunctionType::TAN, E, TrigAngleUnits::RADIANS),
   };
 
-  for (const MathTestCase &test_case : test_cases) {
+  for (const MathParserTestCase &test_case : test_cases) {
     const std::string &expression = test_case.expression;
     std::printf("\"%s\"\n", expression.c_str());
 
-    MathParser::Result result = MathParser::evaluate_expression(expression, test_case.current);
+    MathParser::Result result = MathParser::evaluate_expression(expression, test_case.config, test_case.current);
 
     switch(result.status) {
       case MathParser::Status::SUCCESS: {
@@ -140,8 +128,8 @@ TEST_CASE("MathParser", "evaluate_expression") {
               std::printf("<parsing error: syntax error>\n\n");
             } else {
               std::printf("<parsing error: syntax error> at position %zu: \"%s\"\n\n",
-                     result.error_position,
-                     expression.substr(std::min(expression.length(), result.error_position), result.error_length).c_str());
+                          result.error_position,
+                          expression.substr(std::min(expression.length(), result.error_position), result.error_length).c_str());
             }
             break;
           }
@@ -169,9 +157,9 @@ TEST_CASE("MathParser", "evaluate_expression") {
           std::printf("<evaluation error%s>\n\n", error_string.c_str());
         } else {
           std::printf("<evaluation error%s> at position %zu: \"%s\"\n\n",
-                 error_string.c_str(),
-                 result.error_position,
-                 expression.substr(std::min(expression.length(), result.error_position), result.error_length).c_str());
+                      error_string.c_str(),
+                      result.error_position,
+                      expression.substr(std::min(expression.length(), result.error_position), result.error_length).c_str());
         }
         break;
       }
@@ -186,7 +174,7 @@ TEST_CASE("MathParser", "evaluate_expression") {
       case MathParser::Status::PARSING_ERROR:
         REQUIRE( result.parsing_error == test_case.parsing_error);
         break;
-
+        
       case MathParser::Status::EVALUATION_ERROR:
         REQUIRE( result.evaluation_error == test_case.evaluation_error);
         break;

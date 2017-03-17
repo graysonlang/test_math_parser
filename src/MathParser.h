@@ -29,6 +29,11 @@ namespace MathParser {
     UNEXPECTED_TOKEN,
   };
 
+  struct Config {
+    bool use_degrees = true;
+    Config(bool use_degrees_ = true) : use_degrees(use_degrees_) { }
+  };
+
   struct Result {
     Status status;
     double result;
@@ -43,7 +48,8 @@ namespace MathParser {
     Result(EvaluationErrorType, std::string &&filtered_expression = "", size_t error_position = 0, size_t error_length = 0);
   };
 
-  Result evaluate_expression(const std::string &expression, double current_value = std::numeric_limits<double>::quiet_NaN());
+  Result evaluate_expression(const std::string &expression, Config config = { }, double current_value = std::numeric_limits<double>::quiet_NaN());
+  Result evaluate_expression(const std::string &expression, double current_value, Config config = { });
 
 } // namespace MathParser
 
