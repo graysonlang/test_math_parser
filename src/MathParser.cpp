@@ -29,6 +29,7 @@ namespace MathParser {
       PAREN_R,
       PERCENTAGE,
       SUBTRACT,
+      TIMES,
       UNARY_MINUS,
       UNARY_PLUS,
     };
@@ -64,6 +65,7 @@ namespace MathParser {
       PERCENT,
       PLUS,
       SLASH,
+      X,
     };
 
     Token(const std::string &string, bool left_is_edge = false);
@@ -115,6 +117,7 @@ namespace MathParser {
         { Operator::Type::EXPONENT,    Operator::Associativity::RIGHT, 30, 2, "exp" },
 
         { Operator::Type::PERCENTAGE,  Operator::Associativity::LEFT,  40, 1, "%" },
+        { Operator::Type::TIMES,       Operator::Associativity::LEFT,  40, 1, "x" },
 
         { Operator::Type::UNARY_MINUS, Operator::Associativity::RIGHT, 50, 1, "neg" },
         { Operator::Type::UNARY_PLUS,  Operator::Associativity::RIGHT, 50, 1, "pos" },
@@ -145,6 +148,7 @@ namespace MathParser {
         return EvaluationErrorType::UNEXPECTED_TOKEN;
 
       case Type::PERCENTAGE:
+      case Type::TIMES:
       case Type::UNARY_MINUS:
       case Type::UNARY_PLUS: {
         // Handle unary operators.
@@ -160,6 +164,14 @@ namespace MathParser {
             }
             value = value * current_value / 100.0;
             break;
+
+          case Type::TIMES:
+            if (std::isnan(current_value)) {
+              return EvaluationErrorType::EXPECTED_CURRENT_VALUE;
+            }
+            value = value * current_value;
+            break;
+
 
           case Type::UNARY_MINUS: value *= -1.0; break;
           case Type::UNARY_PLUS:  /* no-op */    break;
@@ -230,6 +242,8 @@ namespace MathParser {
       { "%", Token::Id::PERCENT },
       { "+", Token::Id::PLUS },
       { "/", Token::Id::SLASH },
+      { "x", Token::Id::X },
+      { "X", Token::Id::X },
     };
     auto it = map.find(string);
     return (it == map.end()) ? Token::Id::NONE : it->second;
@@ -245,6 +259,7 @@ namespace MathParser {
       case Id::PAREN_R:  type = Operator::Type::PAREN_R;    break;
       case Id::PERCENT:  type = Operator::Type::PERCENTAGE; break;
       case Id::SLASH:    type = Operator::Type::DIVIDE;     break;
+      case Id::X:        type = Operator::Type::TIMES;      break;
 
         // Differentiate between unary and binary operators.
       case Id::MINUS:    type = left_is_edge ? Operator::Type::UNARY_MINUS : Operator::Type::SUBTRACT; break;
@@ -289,8 +304,8 @@ namespace MathParser {
   // Expects expression to be formatted with infix notation.
   // Converts into postfix notation and evaluates in place.
   Result evaluate_expression(const std::string &expression, double current_value) {
-    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%]|(?:\s+))");
-    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%])");
+    static const std::regex pattern_number_or_operator_or_spaces(R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%xX]|(?:\s+))");
+    static const std::regex pattern_number_or_operator          (R"((?:\d*[.]?\d+)(?:e[+\-]?\d+)?|[()+\-*\/^%xX])");
     static const std::regex spaces(R"(\s+)");
 
     // Compress whitespace.

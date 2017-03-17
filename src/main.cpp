@@ -105,6 +105,8 @@ TEST_CASE("MathParser", "evaluate_expression") {
     { "1 + .2 * -3 / +4 ^ 5",        1 + .2 * -3 / std::pow(+4, 5) },
     { "+-+-1++--++--++--+2-3+4",     1+2-3+4 },
     { "50%",                         0.5 * 1.0, 1.0 },
+    { "2x",                          2.0 * 1.0, 1.0 },
+    { "3X",                          3.0 * 1.0, 1.0 },
   };
 
   for (const MathTestCase &test_case : test_cases) {
