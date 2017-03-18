@@ -1,6 +1,6 @@
 #pragma once
-#ifndef COMMON_UTILS_H__
-#define COMMON_UTILS_H__
+#ifndef COMMON_UTILS_H_
+#define COMMON_UTILS_H_
 
 #ifndef IMPLEMENT_STD_HASH_FOR_ENUM_CLASS
 // Utility routine to add hashing support to enum classes so they can be inserted into maps and sets.

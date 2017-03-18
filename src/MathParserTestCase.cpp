@@ -1,5 +1,6 @@
 #include "MathParserTestCase.h"
 
+#include "common/math.h" // common::math::degrees_to_radians
 #include "common/utils.h" // IMPLEMENT_STD_HASH_FOR_ENUM_CLASS
 
 #include <unordered_map>

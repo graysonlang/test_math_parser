@@ -1,11 +1,11 @@
 #include "MathParser.h"
 
-#include "common/math.h" // d2r
+#include "common/math.h" // common::math::degrees_to_radians
 #include "common/utils.h" // IMPLEMENT_STD_HASH_FOR_ENUM_CLASS
 
 #include <algorithm> // transform
 #include <cassert>
-#include <cmath> // std::isnan, std::
+#include <cmath> // std::isnan, std::cos/sin/tan/etc.
 #include <cstdio>
 #include <locale>
 #include <regex>
@@ -115,9 +115,9 @@ namespace MathParser {
 
   typedef double (*unary_function_pointer)(double);
 
-  double cot(double d) { return 1.0 / tan(d); }
-  double csc(double d) { return 1.0 / sin(d); }
-  double sec(double d) { return 1.0 / cos(d); }
+  double cot(double d) { return 1.0 / std::tan(d); }
+  double csc(double d) { return 1.0 / std::sin(d); }
+  double sec(double d) { return 1.0 / std::cos(d); }
 
   static unary_function_pointer unary_operator_function(Operator::Type type) {
     static std::unordered_map<Operator::Type, unary_function_pointer> unary_functions = {
@@ -404,7 +404,7 @@ namespace MathParser {
 
     // Convert to lower case.
     std::string lower_case(input);
-    transform(lower_case.begin(), lower_case.end(), lower_case.begin(), ::tolower);
+    std::transform(lower_case.begin(), lower_case.end(), lower_case.begin(), ::tolower);
     input = std::move(lower_case);
 
     // Verify input by matching against valid operators, numbers, or spaces.

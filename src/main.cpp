@@ -4,7 +4,7 @@
 #include "MathParser.h"
 #include "MathParserTestCase.h"
 
-#include "common/math.h" // common::math::pi
+#include "common/math.h" // common::math::e/pi/tau
 
 #include <cassert> // std::assert
 #include <climits> // std::numerical_limis::quiet_NaN()

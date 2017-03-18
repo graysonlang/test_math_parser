@@ -4,8 +4,6 @@
 
 #include "MathParser.h"
 
-#include "common/math.h" // common::math::degrees_to_radians
-
 using MathParser::EvaluationErrorType;
 using MathParser::ParsingErrorType;
 
