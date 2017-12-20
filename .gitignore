@@ -1,5 +1,11 @@
-.DS_Store
-Thumbs.db
 build
+
+# macOS Finder "Desktop Services Store" database files.
+.DS_Store
+
+# Xcode user data.
 **/*.xcodeproj/xcuserdata/
-**/*.xcodeproj/*.xcworkspace/xcuserdata/
+**/*.xcworkspace/xcuserdata/
+
+# Xcode dgph (Dependency GraPH) files.
+dgph
